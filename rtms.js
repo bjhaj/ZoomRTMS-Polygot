@@ -1,13 +1,21 @@
 import express from 'express';
 import crypto from 'crypto';
 import WebSocket from 'ws';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const router = express.Router();
 
 // Get Zoom credentials from environment variables
 const ZOOM_SECRET_TOKEN = process.env.ZOOM_SECRET_TOKEN;
-const CLIENT_ID = process.env.ZOOM_CLIENT_ID;
-const CLIENT_SECRET = process.env.ZOOM_CLIENT_SECRET;
+const CLIENT_ID = process.env.ZM_CLIENT_ID;
+const CLIENT_SECRET = process.env.ZM_CLIENT_SECRET;
+
+// Debug log the environment variables
+console.log('Environment Variables:');
+console.log('CLIENT_ID:', CLIENT_ID);
+console.log('CLIENT_SECRET:', CLIENT_SECRET);
 
 // Keep track of active connections
 const activeConnections = new Map();
@@ -52,13 +60,19 @@ router.post('/', (req, res) => {
     res.sendStatus(200);
 });
 
-function generateSignature(clientId, meetingUuid, streamId, secret) {
-    const message = `${clientId},${meetingUuid},${streamId}`;
-    return crypto.createHmac('sha256', secret).update(message).digest('hex');
+function generateSignature(CLIENT_ID, meetingUuid, streamId, CLIENT_SECRET) {
+    console.log('Generating signature with parameters:');
+    //console.log('clientId:', clientId);
+    console.log('meetingUuid:', meetingUuid);
+    console.log('streamId:', streamId);
+   // console.log('secret:', secret);
+
+    const message = `${CLIENT_ID},${meetingUuid},${streamId}`;
+    return crypto.createHmac('sha256', CLIENT_SECRET).update(message).digest('hex');
 }
 
 function connectToSignalingWebSocket(meetingUuid, streamId, serverUrl) {
-    console.log(`Connecting to signaling WebSocket for meeting ${meetingUuid}`);
+    console.log(`Connecting to signaling WebSoccket for meeting ${meetingUuid}`);
 
     const ws = new WebSocket(serverUrl);
 
@@ -78,6 +92,8 @@ function connectToSignalingWebSocket(meetingUuid, streamId, serverUrl) {
             streamId,
             CLIENT_SECRET
         );
+
+       
         const handshake = {
             msg_type: 1,
             protocol_version: 1,
@@ -154,7 +170,7 @@ function connectToMediaWebSocket(
             meeting_uuid: meetingUuid,
             rtms_stream_id: streamId,
             signature,
-            media_type: 1,
+            media_type: 8,
             payload_encryption: false,
         };
         mediaWs.send(JSON.stringify(handshake));
