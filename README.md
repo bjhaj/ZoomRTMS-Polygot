@@ -1,6 +1,6 @@
 # Zoom Apps JavaScript Sample
 
-This Zoom App Sample uses Node.js + Express to build a simple Hello World Zoom App.
+This Zoom App Sample uses Node.js + Express to build a simple Hello World Zoom App with Real-Time Media Streaming (RTMS) capabilities.
 
 ## Prerequisites
 
@@ -11,6 +11,7 @@ This Zoom App Sample uses Node.js + Express to build a simple Hello World Zoom A
     1. Client ID
     2. Client Secret
     3. Redirect URI
+5. [Zoom Beta Client](#install-the-zoom-beta-client)
 
 ## Getting started
 
@@ -87,11 +88,15 @@ sections:
 #### APIs
 
 - shareApp
+- startRTMS
+- stopRTMS
 
 ### Scopes
 
-Ensure that the following scope is selected on the Scopes tab:
+Ensure that the following scopes are selected on the Scopes tab:
 - `zoomapp:inmeeting`
+- `meeting:read:rtms`
+- `rtms:read:meeting`
 
 ### Config `.env`
 
@@ -107,6 +112,12 @@ ZM_CLIENT_SECRET=[app_client_secret]
 
 # Redirect URI set for your app in the Zoom Marketplace
 ZM_REDIRECT_URL=https://[xxxx-xx-xx-xxx-x].ngrok.io/auth
+
+# App Name used for isolating logs
+APP_NAME=[your_app_name]
+
+# RTMS Secret Token
+ZOOM_SECRET_TOKEN=[your_rtms_secret_token]
 ```
 
 #### Zoom for Government
@@ -118,6 +129,16 @@ customers.
 **Marketplace URL:** marketplace.*zoomgov.com*
 
 **API Base URL:** api.*zoomgov.com*
+
+## Install the Zoom Beta Client
+
+1. Delete the existing Zoom App from your Mac
+2. Download the arm.pkg
+3. Try to install it, very likely it won't install for the first time
+4. In that case, navigate to Privacy & Security, scroll down to security and click on "Open Anyway"
+5. You will receive another message from Apple, click "Open Anyway" again
+6. Complete the setup
+7. Login with your credentials
 
 ## Start the App
 
@@ -148,13 +169,42 @@ NODE_ENV=production npm start
 
 # Windows
 set NODE_ENV=production && npm start
-````
+```
 
 ## Usage
 
 To install the Zoom App, Navigate to the **Home URL** that you set in your browser and click the link to install.
 
 After you authorize the app, Zoom will automatically open the app within the client.
+
+### RTMS Implementation
+
+The app implements Real-Time Media Streaming (RTMS) with the following features:
+
+1. Webhook endpoint at `/webhook` that handles:
+   - URL validation
+   - RTMS start/stop events
+   - Signaling and media WebSocket connections
+
+2. WebSocket connections for:
+   - Signaling handshake
+   - Media data streaming
+   - Keep-alive messages
+
+3. Audio data processing:
+   - Receives raw audio data
+   - Logs audio packets in base64 format
+
+To test RTMS:
+1. Start a Zoom meeting
+2. Click the Apps option in the Zoom meeting
+3. Click on your installed Zoom App
+4. The app will automatically start RTMS
+5. Audio data will be logged to your console in base64 format
+
+To stop RTMS:
+1. Click the "Stop RTMS" button in the app, or
+2. End the meeting
 
 ### Keeping secrets secret
 
