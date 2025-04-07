@@ -1,5 +1,6 @@
 import express from 'express';
 import crypto from 'crypto';
+import { WebSocketServer } from 'ws';
 import WebSocket from 'ws';
 import dotenv from 'dotenv';
 
@@ -19,6 +20,8 @@ console.log('CLIENT_SECRET:', CLIENT_SECRET);
 
 // Keep track of active connections
 const activeConnections = new Map();
+// Keep track of UI clients
+const uiClients = new Set();
 
 // Handle POST requests to the root path of the router
 router.post('/', (req, res) => {
@@ -60,6 +63,15 @@ router.post('/', (req, res) => {
     res.sendStatus(200);
 });
 
+// Function to broadcast message to all UI clients
+function broadcastToUIClients(message) {
+    uiClients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+            client.send(JSON.stringify(message));
+        }
+    });
+}
+
 function generateSignature(CLIENT_ID, meetingUuid, streamId, CLIENT_SECRET) {
     console.log('Generating signature with parameters:');
     //console.log('clientId:', clientId);
@@ -72,7 +84,7 @@ function generateSignature(CLIENT_ID, meetingUuid, streamId, CLIENT_SECRET) {
 }
 
 function connectToSignalingWebSocket(meetingUuid, streamId, serverUrl) {
-    console.log(`Connecting to signaling WebSoccket for meeting ${meetingUuid}`);
+    console.log(`Connecting to signaling WebSocket for meeting ${meetingUuid}`);
 
     const ws = new WebSocket(serverUrl);
 
@@ -117,27 +129,40 @@ function connectToSignalingWebSocket(meetingUuid, streamId, serverUrl) {
             }
         }
 
+        // Handle keep-alive requests immediately to maintain connection
         if (msg.msg_type === 12) {
             const keepAliveResponse = {
                 msg_type: 13,
                 timestamp: msg.timestamp,
             };
-            console.log(
-                'Responding to Signaling KEEP_ALIVE_REQ:',
-                keepAliveResponse
-            );
+            console.log('Responding to Signaling KEEP_ALIVE_REQ immediately');
             ws.send(JSON.stringify(keepAliveResponse));
         }
     });
 
     ws.on('error', (err) => {
         console.error('Signaling socket error:', err);
+        // Try to reconnect after a brief delay
+        setTimeout(() => {
+            if (activeConnections.has(meetingUuid)) {
+                console.log('Attempting to reconnect signaling WebSocket...');
+                connectToSignalingWebSocket(meetingUuid, streamId, serverUrl);
+            }
+        }, 5000);
     });
 
     ws.on('close', () => {
         console.log('Signaling socket closed');
         if (activeConnections.has(meetingUuid)) {
             delete activeConnections.get(meetingUuid).signaling;
+            
+            // Try to reconnect after a brief delay
+            setTimeout(() => {
+                if (activeConnections.has(meetingUuid)) {
+                    console.log('Attempting to reconnect signaling WebSocket after close...');
+                    connectToSignalingWebSocket(meetingUuid, streamId, serverUrl);
+                }
+            }, 5000);
         }
     });
 }
@@ -170,9 +195,12 @@ function connectToMediaWebSocket(
             meeting_uuid: meetingUuid,
             rtms_stream_id: streamId,
             signature,
-            media_type: 8,
+            media_type: 8,  // 8 is for all transcriptions
             payload_encryption: false,
+            // Request all participants' audio by setting the all_participants flag
+            all_participants: true
         };
+        console.log('Sending media handshake with all_participants=true:', handshake);
         mediaWs.send(JSON.stringify(handshake));
     });
 
@@ -180,8 +208,54 @@ function connectToMediaWebSocket(
         try {
             // Try to parse as JSON first
             const msg = JSON.parse(data.toString());
-            console.log('Media JSON Message:', JSON.stringify(msg, null, 2));
+            
+            // For debugging, log all message types except keep-alive (too verbose)
+            if (msg.msg_type !== 12 && msg.msg_type !== 13) {
+                console.log('Media JSON Message:', JSON.stringify(msg, null, 2));
+            }
 
+            // Check if this is a speech content message (msg_type 17) from any participant
+            if (msg.msg_type === 17) {
+                console.log('Speech content message detected!');
+                
+                // Determine the message format and extract data
+                let speechData = null;
+                let participantId = 'unknown';
+                let participantName = 'Unknown Speaker';
+                
+                if (msg.content) {
+                    // Standard format with content field
+                    speechData = msg.content;
+                    participantId = speechData.user_id || 'unknown';
+                    participantName = speechData.user_name || 'Unknown Speaker';
+                    console.log(`Speech from participant ${participantName} (${participantId}): "${speechData.data}"`);
+                } else if (msg.user_id && msg.user_name) {
+                    // Direct message format
+                    speechData = {
+                        user_id: msg.user_id,
+                        user_name: msg.user_name,
+                        data: msg.data || msg.text || '',
+                        timestamp: msg.timestamp || Date.now() * 1000
+                    };
+                    participantId = msg.user_id;
+                    participantName = msg.user_name;
+                    console.log(`Direct speech from participant ${participantName} (${participantId}): "${speechData.data}"`);
+                } else {
+                    // Unknown format, use the full message
+                    speechData = msg;
+                    console.log('Using unknown message format for speech data');
+                }
+                
+                if (speechData) {
+                    console.log('Broadcasting speech data to UI clients:', speechData);
+                    broadcastToUIClients({
+                        type: 'speech',
+                        data: speechData
+                    });
+                }
+            }
+
+            // Handle handshake success
             if (msg.msg_type === 4 && msg.status_code === 0) {
                 signalingSocket.send(
                     JSON.stringify({
@@ -194,29 +268,44 @@ function connectToMediaWebSocket(
                 );
             }
 
+            // Handle keep-alive requests immediately to maintain connection
             if (msg.msg_type === 12) {
-                mediaWs.send(
-                    JSON.stringify({
-                        msg_type: 13,
-                        timestamp: msg.timestamp,
-                    })
-                );
-                console.log('Responded to Media KEEP_ALIVE_REQ');
+                const keepAliveResponse = {
+                    msg_type: 13,
+                    timestamp: msg.timestamp,
+                };
+                mediaWs.send(JSON.stringify(keepAliveResponse));
+                console.log('Responded to Media KEEP_ALIVE_REQ immediately');
             }
         } catch (err) {
             // If JSON parsing fails, it's binary audio data
-            console.log('Raw audio data (base64):', data.toString('base64'));
+            console.log('Raw audio data received (base64 sample):', data.toString('base64').substring(0, 100) + '...');
         }
     });
 
     mediaWs.on('error', (err) => {
         console.error('Media socket error:', err);
+        // Try to reconnect after a brief delay
+        setTimeout(() => {
+            if (activeConnections.has(meetingUuid)) {
+                console.log('Attempting to reconnect media WebSocket...');
+                connectToMediaWebSocket(mediaUrl, meetingUuid, streamId, signalingSocket);
+            }
+        }, 5000);
     });
 
     mediaWs.on('close', () => {
         console.log('Media socket closed');
         if (activeConnections.has(meetingUuid)) {
             delete activeConnections.get(meetingUuid).media;
+            
+            // Try to reconnect after a brief delay
+            setTimeout(() => {
+                if (activeConnections.has(meetingUuid)) {
+                    console.log('Attempting to reconnect media WebSocket after close...');
+                    connectToMediaWebSocket(mediaUrl, meetingUuid, streamId, signalingSocket);
+                }
+            }, 5000);
         }
     });
 }
@@ -228,6 +317,25 @@ export function initRtmsRoutes(app) {
     console.log('RTMS webhook endpoint registered at /webhook');
 }
 
+// Create WebSocket server for UI clients
+export function setupWSServer(server) {
+    const wss = new WebSocketServer({ server });
+    
+    wss.on('connection', (ws) => {
+        console.log('UI client connected');
+        uiClients.add(ws);
+        
+        ws.on('close', () => {
+            console.log('UI client disconnected');
+            uiClients.delete(ws);
+        });
+    });
+    
+    console.log('WebSocket server for UI clients initialized');
+    return wss;
+}
+
 export default {
     initRtmsRoutes,
+    setupWSServer
 };

@@ -1,6 +1,6 @@
-# Zoom Apps JavaScript Sample
+# Real-Time Subtitling Zoom App
 
-This Zoom App Sample uses Node.js + Express to build a simple Hello World Zoom App with Real-Time Media Streaming (RTMS) capabilities.
+This Zoom App uses Node.js + Express to build a real-time subtitling application powered by Zoom's Real-Time Media Streaming (RTMS) capabilities. The app captures audio from Zoom meetings, transcribes it, and displays subtitles in real-time.
 
 ## Prerequisites
 
@@ -193,16 +193,16 @@ The app implements Real-Time Media Streaming (RTMS) with the following features:
 
 3. Audio data processing:
    - Receives raw audio data
-   - Logs audio packets in base64 format
+   - Processes audio for real-time transcription
+   - Generates subtitles for meeting participants
 
-To test RTMS:
+To test the subtitling feature:
 1. Start a Zoom meeting
 2. Click the Apps option in the Zoom meeting
 3. Click on your installed Zoom App
-4. The app will automatically start RTMS
-5. Audio data will be logged to your console in base64 format
+4. The app will automatically start RTMS and begin displaying subtitles
 
-To stop RTMS:
+To stop RTMS and subtitling:
 1. Click the "Stop RTMS" button in the app, or
 2. End the meeting
 
@@ -236,3 +236,25 @@ with [Premier Developer Support](https://zoom.us/docs/en-us/developer-support-pl
 
 ### Documentation
 Make sure to review [our documentation](https://marketplace.zoom.us/docs/zoom-apps/introduction/) as a reference when building your Zoom Apps.
+
+## Future Development
+
+Our roadmap includes several enhancements to the current subtitling functionality:
+
+### Speech-to-Speech Translation
+
+We are implementing a complete speech-to-speech translation pipeline that will:
+1. Capture audio via RTMS
+2. Transcribe the speech in the original language
+3. Translate the text to target languages
+4. Convert translated text back to speech using Text-to-Speech models
+5. Deliver the translated audio to meeting participants
+
+### Voice Preservation Technology
+
+A key focus area is maintaining speaker voice characteristics during translation:
+- Researching voice cloning techniques to preserve speaker identity
+- Implementing voice style transfer to maintain natural conversation flow
+- Developing low-latency processing to ensure seamless communication
+
+These advancements will enable natural multilingual conversations in Zoom meetings while preserving each participant's unique voice characteristics.

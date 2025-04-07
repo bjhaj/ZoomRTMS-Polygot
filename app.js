@@ -11,6 +11,7 @@ import { fileURLToPath, URL } from 'url';
 import { start } from './server/server.js';
 import indexRoutes from './server/routes/index.js';
 import authRoutes from './server/routes/auth.js';
+import translateRoutes from './server/routes/translate.js';
 import rtmsHandler from './rtms.js';
 
 import { appName, port, redirectUri } from './config.js';
@@ -71,7 +72,7 @@ const headers = {
             styleSrc: ["'self'"],
             scriptSrc: ["'self'", 'https://appssdk.zoom.us/sdk.min.js'],
             imgSrc: ["'self'", `https://${redirectHost}`],
-            'connect-src': 'self',
+            'connect-src': ['self', 'wss:', 'ws:'],
             'base-uri': 'self',
             'form-action': 'self',
         },
@@ -92,6 +93,7 @@ app.use(express.static(staticDir));
 /* Routing */
 app.use('/', indexRoutes);
 app.use('/auth', authRoutes);
+app.use('/api/translate', translateRoutes);
 rtmsHandler.initRtmsRoutes(app);
 
 // eslint-disable-next-line no-unused-vars
@@ -114,9 +116,14 @@ app.use((err, req, res, next) => {
 app.get('*', (req, res) => res.redirect('/'));
 
 // start serving
-start(app, port).catch(async (e) => {
-    console.error(e);
-    process.exit(1);
-});
+start(app, port)
+    .then(server => {
+        // Set up WebSocket server for UI clients
+        rtmsHandler.setupWSServer(server);
+    })
+    .catch(async (e) => {
+        console.error(e);
+        process.exit(1);
+    });
 
 export default app;

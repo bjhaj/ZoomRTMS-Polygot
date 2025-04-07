@@ -8,6 +8,7 @@ const dbg = debug(`${appName}:http`);
  * Start the HTTP server
  * @param app - Express app to attach to
  * @param {String|number} port - local TCP port to serve from
+ * @returns {Promise<http.Server>} The HTTP server instance
  */
 export async function start(app, port) {
     // Create HTTP server
@@ -40,5 +41,8 @@ export async function start(app, port) {
     });
 
     // Listen on provided port, on all network interfaces
-    return server.listen(port);
+    server.listen(port);
+    
+    // Return the server instance
+    return server;
 }

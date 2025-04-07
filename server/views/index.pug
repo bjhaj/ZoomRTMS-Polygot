@@ -4,6 +4,13 @@ block content
     h1=title
     if isZoom
         p Welcome to your Zoom App
+        
+        // Container for transcriptions
+        div#transcription-container
+            h2 Live Transcription
+            div#transcription-content
+                p#waiting-message Waiting for speech...
+                div#transcription-list
     else
         p You're viewing your Zoom App through the browser.&nbsp;
             a(href=`/install`) Click Here
@@ -13,4 +20,160 @@ append scripts
     if isZoom
         script(type="module" src='/js/bundle.mjs')
         script(nomodule src='/js/bundle.js')
+
+append styles
+    style.
+        #transcription-container {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+            max-height: 500px;
+            overflow-y: auto;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        #transcription-list {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            width: 100%;
+        }
+        .earlier-messages-indicator {
+            text-align: center;
+            font-style: italic;
+            color: #999;
+            margin: 8px 0;
+            font-size: 12px;
+            padding: 4px;
+            background-color: rgba(0,0,0,0.03);
+            border-radius: 12px;
+        }
+        .transcription-item {
+            margin-bottom: 14px;
+            padding: 12px;
+            border-radius: 8px;
+            background-color: #e6f7ff;
+            animation: fadeIn 0.5s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            max-width: 90%;
+            position: relative;
+        }
+        .muted-message {
+            opacity: 0.65; 
+            background-color: #f1f1f1 !important;
+        }
+        .muted-text {
+            color: #777 !important;
+            text-decoration: line-through;
+            font-style: italic;
+        }
+        .muted-indicator {
+            font-size: 12px;
+            color: #777;
+            margin-left: 6px;
+            font-style: italic;
+        }
+        .transcription-item[data-speaker-id="16778240"] {
+            background-color: #e3f2fd;
+            align-self: flex-end;
+        }
+        .transcription-item[data-speaker-id="16786432"] {
+            background-color: #f1f8e9;
+            align-self: flex-start;
+        }
+        .transcription-item:not([data-speaker-id="16778240"]):not([data-speaker-id="16786432"]) {
+            background-color: #fff3e0;
+            align-self: flex-start;
+        }
+        .user-info {
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #2D8CFF;
+            font-size: 15px;
+        }
+        .speech-text {
+            margin-bottom: 6px;
+            line-height: 1.4;
+        }
+        .speech-text.original {
+            font-weight: normal;
+            color: #333;
+            font-size: 16px;
+        }
+        .speech-text.translation {
+            font-style: italic;
+            color: #555;
+            margin-top: 6px;
+            padding-left: 10px;
+            border-left: 2px solid #2D8CFF;
+            font-size: 14px;
+            background-color: rgba(255,255,255,0.5);
+            padding: 6px 10px;
+            border-radius: 6px;
+        }
+        .translation-prefix {
+            margin-right: 5px;
+            font-style: normal;
+            display: inline-block;
+        }
+        .new-speaker {
+            margin-top: 20px;
+        }
+        .minimalist-translation {
+            padding: 8px 16px;
+            margin-bottom: 10px;
+            background-color: rgba(0,0,0,0.7);
+            color: white;
+            border-radius: 20px;
+            font-size: 16px;
+            max-width: 90%;
+            text-align: left;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            animation: fadeIn 0.3s;
+        }
+        .speaker-label {
+            font-weight: bold;
+            color: #333;
+            font-size: 14px;
+            margin-top: 20px;
+            margin-bottom: 5px;
+            padding-left: 8px;
+            border-left: 4px solid #2D8CFF;
+        }
+        .translating {
+            font-style: italic;
+            color: rgba(255,255,255,0.7);
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        /* Language selector styling */
+        .language-selector {
+            background-color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .language-selector-container {
+            margin: 10px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .language-selector-container label {
+            font-size: 14px;
+            font-weight: bold;
+            color: #555;
+        }
+        .rtms-controls {
+            background-color: white;
+            padding: 12px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 15px;
+        }
 
